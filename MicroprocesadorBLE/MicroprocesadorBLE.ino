@@ -65,7 +65,7 @@ void inicializarPlaquita () {
 // --------------------------------------------------------------
 void setup() {
 
-  Globales::elPuerto.esperarDisponible();
+ // Globales::elPuerto.esperarDisponible();
 
   // 
   // 
@@ -143,7 +143,7 @@ void loop () {
   
   elPublicador.publicarCO2( valorCO2,
 							cont,
-							10000 // intervalo de emisión
+							3000 // intervalo de emisión
 							);
   
   // 

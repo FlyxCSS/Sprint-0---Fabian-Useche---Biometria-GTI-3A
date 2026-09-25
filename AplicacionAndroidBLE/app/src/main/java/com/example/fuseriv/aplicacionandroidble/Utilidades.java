@@ -85,41 +85,33 @@ public class Utilidades {
 
     // -------------------------------------------------------------------------------
     // -------------------------------------------------------------------------------
-    public static int bytesToIntOK( byte[] bytes ) {
-        if (bytes == null ) {
+    public static int bytesToIntOK(byte[] bytes) {
+
+        if (bytes == null) {
             return 0;
         }
 
-        if ( bytes.length > 4 ) {
-            throw new Error( "demasiados bytes para pasar a int ");
+        if (bytes.length > 4) {
+
+            throw new IllegalArgumentException(
+                    "Demasiados bytes para convertir a int"
+            );
         }
-        int res = 0;
 
 
+        int resultado = 0;
 
-        for( byte b : bytes ) {
-           /*
-           Log.d( MainActivity.ETIQUETA_LOG, "bytesToInt(): byte: hex=" + Integer.toHexString( b )
-                   + " dec=" + b + " bin=" + Integer.toBinaryString( b ) +
-                   " hex=" + Byte.toString( b )
-           );
-           */
-            res =  (res << 8) // * 16
-                    + (b & 0xFF); // para quedarse con 1 byte (2 cuartetos) de lo que haya en b
-        } // for
 
-        if ( (bytes[ 0 ] & 0x8) != 0 ) {
-            // si tiene signo negativo (un 1 a la izquierda del primer byte
-            res = -(~(byte)res)-1; // complemento a 2 (~) de res pero como byte, -1
+        for (byte b : bytes) {
+
+            resultado =
+                    (resultado << 8)
+                            | (b & 0xFF);
         }
-       /*
-        Log.d( MainActivity.ETIQUETA_LOG, "bytesToInt(): res = " + res + " ~res=" + (res ^ 0xffff)
-                + "~res=" + ~((byte) res)
-        );
-        */
 
-        return res;
-    } // ()
+
+        return resultado;
+    }// ()
 
     // -------------------------------------------------------------------------------
     // -------------------------------------------------------------------------------
