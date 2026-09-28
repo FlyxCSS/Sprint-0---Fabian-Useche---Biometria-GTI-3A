@@ -1,0 +1,51 @@
+# =========================
+# Android / Gradle
+# =========================
+
+.gradle/
+**/.gradle/
+
+.idea/
+**/.idea/
+
+build/
+**/build/
+
+local.properties
+**/local.properties
+
+*.iml
+
+# APK / AAB generados
+*.apk
+*.aab
+
+# Archivos de caché / compilación
+*.class
+*.dex
+
+# Logs
+*.log
+
+# =========================
+# Sistema operativo
+# =========================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# IDEs
+# =========================
+
+.vscode/
+
+# =========================
+# Temporales
+# =========================
+
+*.tmp
+*.temp
+*.swp
+*~
