@@ -1,0 +1,42 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+}
+
+.contenedor {
+    max-width: 600px;
+    margin: 80px auto;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+}
+
+.tarjeta {
+    background-color: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dato {
+    margin: 15px 0;
+    font-size: 18px;
+}
+
+.etiqueta {
+    font-weight: bold;
+}
+
+button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    cursor: pointer;
+}
+
+#estado {
+    margin-top: 15px;
+}

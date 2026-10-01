@@ -22,14 +22,28 @@ import androidx.core.content.ContextCompat;
 import java.util.ArrayList;
 import java.util.List;
 
+
 public class MainActivity extends AppCompatActivity {
+
+    // --------------------------------------------------------------
+    // CONSTANTES
+    // --------------------------------------------------------------
 
     private static final String ETIQUETA_LOG = ">>>>";
 
     private static final int CODIGO_PETICION_PERMISOS = 11223344;
 
-    // Nombre que emite nuestra SparkFun
+    // Nombre BLE emitido por nuestra SparkFun
     private static final String NOMBRE_BEACON = "Fabian_GTI";
+
+    // URL del servidor REST alojado en Plesk
+    private static final String URL_MEDICION =
+            "https://fuseriv.upv.edu.es/api/medicion";
+
+
+    // --------------------------------------------------------------
+    // BLUETOOTH
+    // --------------------------------------------------------------
 
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothLeScanner elEscanner;
@@ -37,9 +51,38 @@ public class MainActivity extends AppCompatActivity {
 
 
     // --------------------------------------------------------------
+    // CONTROL DE MEDICIONES
+    // --------------------------------------------------------------
+
+    /*
+     * Guarda el último contador enviado al servidor.
+     *
+     * El contador está almacenado en el byte bajo del Major.
+     *
+     * Sirve para evitar enviar muchas veces la misma medición,
+     * ya que un mismo iBeacon se recibe repetidamente durante
+     * el intervalo de advertising.
+     */
+    private int ultimoContadorEnviado = -1;
+
+
+    // --------------------------------------------------------------
     // PERMISOS
     // --------------------------------------------------------------
 
+    /*
+    ------------------------------------------------------------
+    tengoPermisosBluetooth() --> B
+
+    PRE:
+    - Ninguna.
+
+    POST:
+    - Devuelve true si la aplicación tiene los permisos
+      necesarios para realizar el escaneo BLE.
+    - Devuelve false en caso contrario.
+    ------------------------------------------------------------
+    */
     private boolean tengoPermisosBluetooth() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -72,6 +115,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    /*
+    ------------------------------------------------------------
+    pedirPermisosBluetooth() --> void
+
+    PRE:
+    - Ninguna.
+
+    POST:
+    - Solicita al usuario los permisos necesarios para realizar
+      el escaneo BLE.
+    ------------------------------------------------------------
+    */
     private void pedirPermisosBluetooth() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -81,6 +136,7 @@ public class MainActivity extends AppCompatActivity {
                     new String[]{
                             Manifest.permission.BLUETOOTH_SCAN,
                             Manifest.permission.BLUETOOTH_CONNECT,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
                             Manifest.permission.ACCESS_FINE_LOCATION
                     },
                     CODIGO_PETICION_PERMISOS
@@ -91,6 +147,7 @@ public class MainActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(
                     this,
                     new String[]{
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
                             Manifest.permission.ACCESS_FINE_LOCATION
                     },
                     CODIGO_PETICION_PERMISOS
@@ -103,14 +160,33 @@ public class MainActivity extends AppCompatActivity {
     // INICIALIZAR BLUETOOTH
     // --------------------------------------------------------------
 
+    /*
+    ------------------------------------------------------------
+    inicializarBlueTooth() --> void
+
+    PRE:
+    - El dispositivo dispone de Bluetooth.
+
+    POST:
+    - Inicializa el adaptador Bluetooth y el escáner BLE.
+    - Si faltan permisos, los solicita.
+    ------------------------------------------------------------
+    */
     @SuppressLint("MissingPermission")
     private void inicializarBlueTooth() {
 
-        Log.d(ETIQUETA_LOG, "Inicializando Bluetooth...");
+        Log.d(
+                ETIQUETA_LOG,
+                "Inicializando Bluetooth..."
+        );
+
 
         if (!tengoPermisosBluetooth()) {
 
-            Log.d(ETIQUETA_LOG, "No tenemos permisos Bluetooth");
+            Log.d(
+                    ETIQUETA_LOG,
+                    "No tenemos permisos Bluetooth"
+            );
 
             pedirPermisosBluetooth();
 
@@ -118,7 +194,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
-        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        bluetoothAdapter =
+                BluetoothAdapter.getDefaultAdapter();
 
 
         if (bluetoothAdapter == null) {
@@ -169,6 +246,18 @@ public class MainActivity extends AppCompatActivity {
     // COMPROBAR ESCÁNER
     // --------------------------------------------------------------
 
+    /*
+    ------------------------------------------------------------
+    escanerPreparado() --> B
+
+    PRE:
+    - Ninguna.
+
+    POST:
+    - Devuelve true si el escáner BLE está disponible.
+    - Intenta inicializar Bluetooth si todavía no se ha hecho.
+    ------------------------------------------------------------
+    */
     @SuppressLint("MissingPermission")
     private boolean escanerPreparado() {
 
@@ -194,6 +283,18 @@ public class MainActivity extends AppCompatActivity {
     // BUSCAR TODOS LOS DISPOSITIVOS
     // --------------------------------------------------------------
 
+    /*
+    ------------------------------------------------------------
+    buscarTodosLosDispositivosBTLE() --> void
+
+    PRE:
+    - Bluetooth está disponible y activado.
+    - La aplicación dispone de los permisos necesarios.
+
+    POST:
+    - Inicia un escaneo de todos los dispositivos BLE cercanos.
+    ------------------------------------------------------------
+    */
     @SuppressLint("MissingPermission")
     private void buscarTodosLosDispositivosBTLE() {
 
@@ -289,6 +390,20 @@ public class MainActivity extends AppCompatActivity {
     // BUSCAR NUESTRA SPARKFUN
     // --------------------------------------------------------------
 
+    /*
+    ------------------------------------------------------------
+    buscarEsteDispositivoBTLE(
+        dispositivoBuscado: Texto
+    ) --> void
+
+    PRE:
+    - Bluetooth está disponible y activado.
+    - dispositivoBuscado contiene el nombre del dispositivo.
+
+    POST:
+    - Inicia un escaneo BLE filtrado por el nombre indicado.
+    ------------------------------------------------------------
+    */
     @SuppressLint("MissingPermission")
     private void buscarEsteDispositivoBTLE(
             final String dispositivoBuscado
@@ -362,7 +477,7 @@ public class MainActivity extends AppCompatActivity {
                 };
 
 
-        // FILTRO POR NOMBRE
+        // Filtro para recibir únicamente nuestro dispositivo.
         ScanFilter filtro =
                 new ScanFilter.Builder()
                         .setDeviceName(
@@ -404,6 +519,24 @@ public class MainActivity extends AppCompatActivity {
     // LEER DATOS DEL DISPOSITIVO
     // --------------------------------------------------------------
 
+    /*
+    ------------------------------------------------------------
+    mostrarInformacionDispositivoBTLE(
+        resultado: ScanResult
+    ) --> void
+
+    PRE:
+    - resultado contiene una trama BLE válida.
+
+    POST:
+    - Muestra en Logcat la información recibida.
+    - Si el dispositivo es Fabian_GTI, interpreta la trama
+      como iBeacon.
+    - Obtiene Major y Minor.
+    - Envía una nueva medición al servidor cuando cambia
+      el contador incluido en Major.
+    ------------------------------------------------------------
+    */
     @SuppressLint("MissingPermission")
     private void mostrarInformacionDispositivoBTLE(
             ScanResult resultado
@@ -490,6 +623,27 @@ public class MainActivity extends AppCompatActivity {
         );
 
 
+        /*
+         * No interpretamos cualquier dispositivo BLE como iBeacon
+         * de nuestro proyecto.
+         */
+        if (!NOMBRE_BEACON.equals(nombre)) {
+
+            Log.d(
+                    ETIQUETA_LOG,
+                    "Dispositivo ignorado: no es "
+                            + NOMBRE_BEACON
+            );
+
+            Log.d(
+                    ETIQUETA_LOG,
+                    "=================================="
+            );
+
+            return;
+        }
+
+
         // ----------------------------------------------------------
         // INTERPRETAR COMO IBEACON
         // ----------------------------------------------------------
@@ -510,6 +664,19 @@ public class MainActivity extends AppCompatActivity {
                     Utilidades.bytesToIntOK(
                             trama.getMinor()
                     );
+
+
+            /*
+             * Major está formado por:
+             *
+             * byte alto -> tipo de medición
+             * byte bajo -> contador
+             */
+            int tipoMedicion =
+                    (major >> 8) & 0xFF;
+
+            int contador =
+                    major & 0xFF;
 
 
             Log.d(
@@ -538,6 +705,18 @@ public class MainActivity extends AppCompatActivity {
 
             Log.d(
                     ETIQUETA_LOG,
+                    "TIPO MEDICION = " + tipoMedicion
+            );
+
+
+            Log.d(
+                    ETIQUETA_LOG,
+                    "CONTADOR = " + contador
+            );
+
+
+            Log.d(
+                    ETIQUETA_LOG,
                     "MINOR = " + minor
             );
 
@@ -547,6 +726,45 @@ public class MainActivity extends AppCompatActivity {
                     "TX POWER = "
                             + trama.getTxPower()
             );
+
+
+            // ------------------------------------------------------
+            // ENVIAR AL SERVIDOR
+            // ------------------------------------------------------
+
+            /*
+             * Android recibe varias veces el mismo anuncio iBeacon.
+             *
+             * Solo enviamos la medición cuando aparece un contador
+             * diferente al último que ya hemos enviado.
+             */
+            if (contador != ultimoContadorEnviado) {
+
+                ultimoContadorEnviado = contador;
+
+                Log.d(
+                        ETIQUETA_LOG,
+                        "Nueva medición. Se enviará al servidor."
+                );
+
+
+                /*
+                 * Durante el Sprint 0 estamos trabajando con O3.
+                 *
+                 * El valor recibido está almacenado en Minor.
+                 */
+                enviarMedicionAlServidor(
+                        "O3",
+                        minor
+                );
+
+            } else {
+
+                Log.d(
+                        ETIQUETA_LOG,
+                        "Medición repetida. No se envía nuevamente."
+                );
+            }
 
 
             Log.d(
@@ -567,9 +785,101 @@ public class MainActivity extends AppCompatActivity {
 
 
     // --------------------------------------------------------------
+    // ENVIAR MEDICIÓN AL SERVIDOR REST
+    // --------------------------------------------------------------
+
+    /*
+    ------------------------------------------------------------
+    enviarMedicionAlServidor(
+        tipo: Texto,
+        valor: R
+    ) --> void
+
+    PRE:
+    - tipo contiene el tipo de medición.
+    - valor contiene el valor recibido mediante BLE.
+    - Existe conexión a Internet.
+
+    PROCESO:
+    - Construir el cuerpo JSON de la petición.
+    - Realizar POST contra /api/medicion.
+    - Recibir la respuesta del servidor.
+
+    POST:
+    - La medición se envía al servidor REST.
+    - La respuesta HTTP se muestra en Logcat.
+    ------------------------------------------------------------
+    */
+    private void enviarMedicionAlServidor(
+            String tipo,
+            int valor
+    ) {
+
+        String cuerpoJSON =
+                "{"
+                        + "\"tipo\":\"" + tipo + "\","
+                        + "\"valor\":" + valor
+                        + "}";
+
+
+        Log.d(
+                ETIQUETA_LOG,
+                "Enviando POST: " + cuerpoJSON
+        );
+
+
+        PeticionarioREST peticionario =
+                new PeticionarioREST();
+
+
+        peticionario.hacerPeticionREST(
+                "POST",
+                URL_MEDICION,
+                cuerpoJSON,
+
+                new PeticionarioREST.RespuestaREST() {
+
+                    @Override
+                    public void callback(
+                            int codigo,
+                            String cuerpo
+                    ) {
+
+                        Log.d(
+                                ETIQUETA_LOG,
+                                "RESPUESTA REST"
+                        );
+
+                        Log.d(
+                                ETIQUETA_LOG,
+                                "Código HTTP = " + codigo
+                        );
+
+                        Log.d(
+                                ETIQUETA_LOG,
+                                "Cuerpo = " + cuerpo
+                        );
+                    }
+                }
+        );
+    }
+
+
+    // --------------------------------------------------------------
     // DETENER ESCANEO
     // --------------------------------------------------------------
 
+    /*
+    ------------------------------------------------------------
+    detenerBusquedaDispositivosBTLE() --> void
+
+    PRE:
+    - Puede existir un escaneo BLE activo.
+
+    POST:
+    - Detiene el escaneo BLE actual.
+    ------------------------------------------------------------
+    */
     @SuppressLint("MissingPermission")
     private void detenerBusquedaDispositivosBTLE() {
 
@@ -607,6 +917,14 @@ public class MainActivity extends AppCompatActivity {
     // BOTONES
     // --------------------------------------------------------------
 
+    /*
+    ------------------------------------------------------------
+    botonBuscarDispositivosBTLEPulsado(v: View) --> void
+
+    POST:
+    - Inicia la búsqueda de todos los dispositivos BLE.
+    ------------------------------------------------------------
+    */
     public void botonBuscarDispositivosBTLEPulsado(
             View v
     ) {
@@ -615,6 +933,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    /*
+    ------------------------------------------------------------
+    botonBuscarNuestroDispositivoBTLEPulsado(v: View) --> void
+
+    POST:
+    - Busca únicamente el dispositivo Fabian_GTI.
+    ------------------------------------------------------------
+    */
     public void botonBuscarNuestroDispositivoBTLEPulsado(
             View v
     ) {
@@ -625,6 +951,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    /*
+    ------------------------------------------------------------
+    botonDetenerBusquedaDispositivosBTLEPulsado(v: View) --> void
+
+    POST:
+    - Detiene el escaneo BLE.
+    ------------------------------------------------------------
+    */
     public void botonDetenerBusquedaDispositivosBTLEPulsado(
             View v
     ) {
@@ -663,6 +997,15 @@ public class MainActivity extends AppCompatActivity {
     // RESULTADO DE PERMISOS
     // --------------------------------------------------------------
 
+    /*
+    ------------------------------------------------------------
+    onRequestPermissionsResult(...)
+
+    POST:
+    - Comprueba si los permisos solicitados fueron concedidos.
+    - Si se concedieron, inicializa Bluetooth.
+    ------------------------------------------------------------
+    */
     @Override
     public void onRequestPermissionsResult(
             int requestCode,
@@ -677,10 +1020,7 @@ public class MainActivity extends AppCompatActivity {
         );
 
 
-        if (
-                requestCode
-                        == CODIGO_PETICION_PERMISOS
-        ) {
+        if (requestCode == CODIGO_PETICION_PERMISOS) {
 
             boolean concedidos = true;
 

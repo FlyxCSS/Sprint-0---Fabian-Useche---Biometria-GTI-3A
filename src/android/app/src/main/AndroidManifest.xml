@@ -12,9 +12,10 @@
         android:maxSdkVersion="30" />
 
     <!-- Ubicación necesaria para el escaneo BLE/beacons -->
-    <uses-permission
-        android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Android 12+ -->
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN" />

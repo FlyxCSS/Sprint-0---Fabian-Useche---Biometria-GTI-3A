@@ -139,11 +139,11 @@ void loop () {
   //  PARTE DE CO2
 
 
-  int valorCO2 = /*elMedidor.medirCO2();*/ 1234; //valor de prueba
+  int valorCO2 = /*elMedidor.medirCO2();*/ 4321; //valor de prueba
   
   elPublicador.publicarCO2( valorCO2,
 							cont,
-							3000 // intervalo de emisión
+							5000 // intervalo de emisión
 							);
   
   // 
