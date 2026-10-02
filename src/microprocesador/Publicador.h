@@ -1,117 +1,147 @@
 // -*- mode: c++ -*-
 
 // --------------------------------------------------------------
-// Jordi Bataller i Mascarell
+// Fichero: Publicador.h
+// Descripción: Codificación y publicación de mediciones BLE.
+// Fecha: 2026-10-02
+// Autor: Fabián Useche
+// Base del código: Jordi Bataller i Mascarell
+// Aportación: publicación genérica de mediciones mediante iBeacon.
+// Copyright: material académico y modificaciones del autor.
 // --------------------------------------------------------------
 
 #ifndef PUBLICADOR_H_INCLUIDO
 #define PUBLICADOR_H_INCLUIDO
 
-// --------------------------------------------------------------
-// --------------------------------------------------------------
+
 class Publicador {
 
-  // ............................................................
-  // ............................................................
-private:
-
-  uint8_t beaconUUID[16] = { 
-	'E', 'P', 'S', 'G', '-', 'G', 'T', 'I', 
-	'-', 'P', 'R', 'O', 'Y', '-', '3', 'A'
-	};
-
-  // ............................................................
-  // ............................................................
-public:
-  EmisoraBLE laEmisora {
-	"Fabian_GTI", //  nombre emisora
-	  0x004c, // fabricanteID (Apple)
-	  4 // txPower
-	  };
-  
-  const int RSSI = -53; // por poner algo, de momento no lo uso
-
-  // ............................................................
-  // ............................................................
 public:
 
-  // ............................................................
-  // ............................................................
-  enum MedicionesID  {
-	CO2 = 11,
-	TEMPERATURA = 12,
-	RUIDO = 13
+  // Identificadores utilizados en el byte alto de Major.
+  enum MedicionesID {
+    O3 = 11,
+    TEMPERATURA = 12
   };
 
-  // ............................................................
-  // ............................................................
-  Publicador( ) {
-	// ATENCION: no hacerlo aquí. (*this).laEmisora.encenderEmisora();
-	// Pondremos un método para llamarlo desde el setup() más tarde
-  } // ()
 
-  // ............................................................
-  // ............................................................
+private:
+
+  // UUID que identifica el proyecto.
+  uint8_t beaconUUID[16] = {
+    'E', 'P', 'S', 'G',
+    '-', 'G', 'T', 'I',
+    '-', 'P', 'R', 'O',
+    'Y', '-', '3', 'A'
+  };
+
+
+  EmisoraBLE laEmisora {
+    "Fabian_GTI",
+    0x004C,
+    4
+  };
+
+
+  const int8_t RSSI = -53;
+
+
+public:
+
+  // ------------------------------------------------------------
+  // tipo: MedicionID, contador: N
+  //        --> construirMajor() --> N
+  //
+  // Codifica el tipo en el byte alto y el contador en el bajo.
+  // No modifica el estado del objeto.
+  // ------------------------------------------------------------
+  static constexpr uint16_t construirMajor(
+    MedicionesID tipo,
+    uint8_t contador
+  ) {
+
+    return
+      (static_cast<uint16_t>(tipo) << 8)
+      |
+      contador;
+
+  } // construirMajor()
+
+
+  // ------------------------------------------------------------
+  // encenderEmisora()
+  //
+  // Inicializa la emisora Bluetooth utilizada por Publicador.
+  // ------------------------------------------------------------
   void encenderEmisora() {
-	(*this).laEmisora.encenderEmisora();
-  } // ()
 
-  // ............................................................
-  // ............................................................
-  void publicarCO2( int16_t valorCO2, uint8_t contador,
-					long tiempoEspera ) {
+    laEmisora.encenderEmisora();
 
-	//
-	// 1. empezamos anuncio
-	//
-	uint16_t major = (MedicionesID::CO2 << 8) + contador;
-	(*this).laEmisora.emitirAnuncioIBeacon( (*this).beaconUUID, 
-											major,
-											valorCO2, // minor
-											(*this).RSSI // rssi
-									);
+  } // encenderEmisora()
 
-	/*
-	Globales::elPuerto.escribir( "   publicarCO2(): valor=" );
-	Globales::elPuerto.escribir( valorCO2 );
-	Globales::elPuerto.escribir( "   contador=" );
-	Globales::elPuerto.escribir( contador );
-	Globales::elPuerto.escribir( "   todo="  );
-	Globales::elPuerto.escribir( major );
-	Globales::elPuerto.escribir( "\n" );
-	*/
 
-	//
-	// 2. esperamos el tiempo que nos digan
-	//
-	esperar( tiempoEspera );
+  // ------------------------------------------------------------
+  // tipo: MedicionID, valor: N, contador: N, tiempo: N
+  //        --> publicarMedida() --> N
+  //
+  // Publica una medición mediante iBeacon.
+  // Major contiene tipo y contador.
+  // Minor contiene la medición codificada en ppb.
+  // Devuelve el Major utilizado.
+  // ------------------------------------------------------------
+  uint16_t publicarMedida(
+    MedicionesID tipo,
+    uint16_t valor,
+    uint8_t contador,
+    unsigned long tiempoEspera
+  ) {
 
-	//
-	// 3. paramos anuncio
-	//
-	(*this).laEmisora.detenerAnuncio();
-  } // ()
+    uint16_t major =
+      construirMajor(
+        tipo,
+        contador
+      );
 
-  // ............................................................
-  // ............................................................
-  void publicarTemperatura( int16_t valorTemperatura,
-							uint8_t contador, long tiempoEspera ) {
 
-	uint16_t major = (MedicionesID::TEMPERATURA << 8) + contador;
-	(*this).laEmisora.emitirAnuncioIBeacon( (*this).beaconUUID, 
-											major,
-											valorTemperatura, // minor
-											(*this).RSSI // rssi
-									);
-	esperar( tiempoEspera );
+    laEmisora.emitirAnuncioIBeacon(
+      beaconUUID,
+      major,
+      valor,
+      RSSI
+    );
 
-	(*this).laEmisora.detenerAnuncio();
-  } // ()
-	
-}; // class
+
+    // Mantiene activa esta medición durante el tiempo indicado.
+    delay(
+      tiempoEspera
+    );
+
+
+    laEmisora.detenerAnuncio();
+
+
+    return major;
+
+  } // publicarMedida()
+
+}; // class Publicador
+
 
 // --------------------------------------------------------------
+// PRUEBA AUTOMÁTICA
+//
+// Comprueba en cada compilación la codificación de Major.
+//
+// O3 = 11 y contador = 5
+// deben producir Major = 0x0B05 = 2821.
 // --------------------------------------------------------------
-// --------------------------------------------------------------
-// --------------------------------------------------------------
+static_assert(
+  Publicador::construirMajor(
+    Publicador::O3,
+    5
+  ) == 2821,
+  "Error en la codificacion del campo Major"
+);
+
+
 #endif

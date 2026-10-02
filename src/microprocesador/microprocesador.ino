@@ -1,206 +1,293 @@
-// -*-c++-*-
+// -*- mode: c++ -*-
 
 // --------------------------------------------------------------
-//
+// Fichero: microprocesador.ino
+// Descripción: Programa principal del nodo sensor BLE.
+// Fecha: 2026-10-02
 // Autor: Fabián Useche
-// Base del codigo: Jordi Bataller i Mascarell
-// 2026-09-18
-//
+// Base del código: Jordi Bataller i Mascarell
+// Aportación: adaptación para publicar mediciones de O3 mediante
+//             iBeacon dentro del Sprint 0.
+// Copyright: material académico y modificaciones del autor.
 // --------------------------------------------------------------
 
-// https://learn.sparkfun.com/tutorials/nrf52840-development-with-arduino-and-circuitpython
-
-// https://stackoverflow.com/questions/29246805/can-an-ibeacon-have-a-data-payload
-
-// --------------------------------------------------------------
-// --------------------------------------------------------------
 #include <bluefruit.h>
 
-#undef min // vaya tela, están definidos en bluefruit.h y  !
-#undef max // colisionan con los de la biblioteca estándar
+#undef min
+#undef max
 
-// --------------------------------------------------------------
-// --------------------------------------------------------------
 #include "LED.h"
 #include "PuertoSerie.h"
-
-// --------------------------------------------------------------
-// --------------------------------------------------------------
-namespace Globales {
-  
-  LED elLED ( /* NUMERO DEL PIN LED = */ 7 );
-
-  PuertoSerie elPuerto ( /* velocidad = */ 115200 ); // 115200 o 9600 o ...
-
-  // Serial1 en el ejemplo de Curro creo que es la conexión placa-sensor 
-};
-
-// --------------------------------------------------------------
-// --------------------------------------------------------------
 #include "EmisoraBLE.h"
 #include "Publicador.h"
 #include "Medidor.h"
 
 
 // --------------------------------------------------------------
+// CONFIGURACIÓN DE LA DEMOSTRACIÓN
+// --------------------------------------------------------------
+namespace Configuracion {
+
+  // Tiempo durante el cual permanece publicada cada medición.
+  const unsigned long INTERVALO_MEDICION_MS = 5000;
+
+  // Duración del destello que indica una nueva medición.
+  const unsigned long DURACION_LED_MS = 100;
+
+  // Tiempo máximo de espera inicial del Serial Monitor.
+  // Después de este tiempo la placa continúa aunque no exista PC.
+  const unsigned long ESPERA_SERIAL_MS = 2500;
+
+} // namespace Configuracion
+
+
+// --------------------------------------------------------------
+// COMPONENTES DEL SISTEMA
 // --------------------------------------------------------------
 namespace Globales {
+
+  LED elLED(7);
+
+  PuertoSerie elPuerto(115200);
 
   Publicador elPublicador;
 
   Medidor elMedidor;
 
-}; // namespace
+} // namespace Globales
+
 
 // --------------------------------------------------------------
-// --------------------------------------------------------------
-void inicializarPlaquita () {
-
-  // de momento nada
-
-} // ()
-
-// --------------------------------------------------------------
-// setup()
-// --------------------------------------------------------------
-void setup() {
-
- // Globales::elPuerto.esperarDisponible();
-
-  // 
-  // 
-  // 
-  inicializarPlaquita();
-
-  // Suspend Loop() to save power
-  // suspendLoop();
-
-  // 
-  // 
-  // 
-  Globales::elPublicador.encenderEmisora();
-
-  // Globales::elPublicador.laEmisora.pruebaEmision();
-  
-  // 
-  // 
-  // 
-  Globales::elMedidor.iniciarMedidor();
-
-  // 
-  // 
-  // 
-  esperar( 1000 );
-
-  Globales::elPuerto.escribir( "---- setup(): fin ---- \n " );
-
-} // setup ()
-
-// --------------------------------------------------------------
-// --------------------------------------------------------------
-inline void lucecitas() {
-  using namespace Globales;
-
-  elLED.brillar( 100 ); // 100 encendido
-  esperar ( 400 ); //  100 apagado
-  elLED.brillar( 100 ); // 100 encendido
-  esperar ( 400 ); //  100 apagado
-  Globales::elLED.brillar( 100 ); // 100 encendido
-  esperar ( 400 ); //  100 apagado
-  Globales::elLED.brillar( 1000 ); // 1000 encendido
-  esperar ( 1000 ); //  100 apagado
-} // ()
-
-// --------------------------------------------------------------
-// loop ()
+// ESTADO DEL CICLO PRINCIPAL
 // --------------------------------------------------------------
 namespace Loop {
-  uint8_t cont = 0;
-};
 
-// ..............................................................
-// ..............................................................
-void loop () {
+  uint32_t numeroLoop = 1;
 
-  using namespace Loop;
+} // namespace Loop
+
+
+// ------------------------------------------------------------
+// ppb: N --> convertirPpbAPpm() --> R
+//
+// Convierte una concentración expresada en ppb a ppm.
+// Esta conversión se utiliza únicamente para mostrar el valor
+// de forma más legible en el Serial Monitor.
+// ------------------------------------------------------------
+float convertirPpbAPpm(
+  uint16_t ppb
+) {
+
+  return
+    ppb / 1000.0f;
+
+} // convertirPpbAPpm()
+
+
+// ------------------------------------------------------------
+// setup()
+//
+// Inicializa Serial, la emisora BLE y el sistema de medición.
+// La placa continúa funcionando aunque el Serial Monitor
+// no esté conectado.
+// ------------------------------------------------------------
+void setup() {
+
   using namespace Globales;
-
-  cont++;
-
-  elPuerto.escribir( "\n---- loop(): empieza " );
-  elPuerto.escribir( cont );
-  elPuerto.escribir( "\n" );
+  using namespace Configuracion;
 
 
-  //lucecitas();
-
-  // 
-  // mido y publico 
-  //  PARTE DE CO2
+  elPuerto.esperarDisponible(
+    ESPERA_SERIAL_MS
+  );
 
 
-  int valorCO2 = /*elMedidor.medirCO2();*/ 4321; //valor de prueba
-  
-  elPublicador.publicarCO2( valorCO2,
-							cont,
-							5000 // intervalo de emisión
-							);
-  
-  // 
-  // mido y publico
-  // 
+  elPuerto.escribir(
+    "\n====================================\n"
+  );
 
-  /* PARTE DE TEMPERATURA
+  elPuerto.escribir(
+    "      INICIANDO MICROPROCESADOR\n"
+  );
 
-
-  int valorTemperatura = elMedidor.medirTemperatura();
-  
-  elPublicador.publicarTemperatura( valorTemperatura, 
-									cont,
-									1000 // intervalo de emisión
-									);
-*/
-  // 
-  // prueba para emitir un iBeacon y poner
-  // en la carga (21 bytes = uuid 16 major 2 minor 2 txPower 1 )
-  // lo que queramos (sin seguir dicho formato)
-  // 
-  // Al terminar la prueba hay que hacer Publicador::laEmisora privado
-  // 
- 
- 
- 
- /* PRUEBA DE JORDI
- 
-  char datos[21] = {
-	'H', 'o', 'l', 'a',
-	'H', 'o', 'l', 'a',
-	'H', 'o', 'l', 'a',
-	'H', 'o', 'l', 'a',
-	'H', 'o', 'l', 'a',
-	'H'
-  };
-
-  // elPublicador.laEmisora.emitirAnuncioIBeaconLibre ( &datos[0], 21 );
-  elPublicador.laEmisora.emitirAnuncioIBeaconLibre ( "MolaMolaMolaMolaMolaM", 21 );
-
-  esperar( 2000 );
-
-  elPublicador.laEmisora.detenerAnuncio();
-
-  */
+  elPuerto.escribir(
+    "====================================\n"
+  );
 
 
-  
-  // 
-  // 
-  // 
-  elPuerto.escribir( "---- loop(): acaba **** " );
-  elPuerto.escribir( cont );
-  elPuerto.escribir( "\n" );
-  
-} // loop ()
-// --------------------------------------------------------------
-// --------------------------------------------------------------
-// --------------------------------------------------------------
-// --------------------------------------------------------------
+  elPublicador.encenderEmisora();
+
+  elMedidor.iniciarMedidor();
+
+
+  elPuerto.escribir(
+    "Sensor: O3\n"
+  );
+
+  elPuerto.escribir(
+    "Dispositivo BLE: Fabian_GTI\n"
+  );
+
+  elPuerto.escribir(
+    "Intervalo: "
+  );
+
+  elPuerto.escribir(
+    INTERVALO_MEDICION_MS
+  );
+
+  elPuerto.escribir(
+    " ms\n"
+  );
+
+  elPuerto.escribir(
+    "====================================\n"
+  );
+
+} // setup()
+
+
+// ------------------------------------------------------------
+// loop()
+//
+// Obtiene una medición de O3 en ppb y la publica mediante
+// una trama iBeacon.
+//
+// Major:
+// - byte alto: tipo de medición.
+// - byte bajo: contador.
+//
+// Minor:
+// - valor de O3 en ppb.
+// ------------------------------------------------------------
+void loop() {
+
+  using namespace Globales;
+  using namespace Loop;
+  using namespace Configuracion;
+
+
+  // Indicación visual de que comienza una nueva medición.
+  elLED.brillar(
+    DURACION_LED_MS
+  );
+
+
+  // Valor ficticio de O3 expresado directamente en ppb.
+  uint16_t valorO3Ppb =
+    elMedidor.medirO3();
+
+
+  // Conversión solo para mostrar el valor en ppm por Serial.
+  float valorO3Ppm =
+    convertirPpbAPpm(
+      valorO3Ppb
+    );
+
+
+  /*
+   * El contador incluido en Major ocupa un byte.
+   * Después de 255 vuelve automáticamente a 0.
+   */
+  uint8_t contador =
+    static_cast<uint8_t>(
+      numeroLoop
+    );
+
+
+  // Calcula el Major utilizando la misma lógica que Publicador.
+  uint16_t major =
+    Publicador::construirMajor(
+      Publicador::O3,
+      contador
+    );
+
+
+  // ----------------------------------------------------------
+  // INFORMACIÓN DE DEPURACIÓN
+  // ----------------------------------------------------------
+
+  elPuerto.escribir(
+    "\n----- Nueva medicion - Loop "
+  );
+
+  elPuerto.escribir(
+    numeroLoop
+  );
+
+  elPuerto.escribir(
+    " -----\n"
+  );
+
+
+  elPuerto.escribir(
+    "Tipo: O3\n"
+  );
+
+
+  elPuerto.escribir(
+    "Contador: "
+  );
+
+  elPuerto.escribir(
+    contador
+  );
+
+
+  elPuerto.escribir(
+    "\nValor O3: "
+  );
+
+  elPuerto.escribirDecimal(
+    valorO3Ppm,
+    3
+  );
+
+  elPuerto.escribir(
+    " ppm\n"
+  );
+
+
+  elPuerto.escribir(
+    "Major enviado: "
+  );
+
+  elPuerto.escribir(
+    major
+  );
+
+
+  elPuerto.escribir(
+    "\nMinor enviado: "
+  );
+
+  elPuerto.escribir(
+    valorO3Ppb
+  );
+
+
+  elPuerto.escribir(
+    "\nIntervalo: "
+  );
+
+  elPuerto.escribir(
+    INTERVALO_MEDICION_MS
+  );
+
+  elPuerto.escribir(
+    " ms\n"
+  );
+
+
+  // Publica la medición mediante BLE.
+  elPublicador.publicarMedida(
+    Publicador::O3,
+    valorO3Ppb,
+    contador,
+    INTERVALO_MEDICION_MS
+  );
+
+
+  numeroLoop++;
+
+} // loop()
